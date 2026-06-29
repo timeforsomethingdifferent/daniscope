@@ -17,3 +17,12 @@ DANISCOPE-Project-Brief.md
 
 # Built installer (the Action builds + attaches this to the release)
 *.zip
+
+# Internal: diagnostic captures (contain your process list) + design notes
+diagnostics/
+DANISCOPE-*-redesign-*.md
+WS_diagnostics/
+
+# Python cache
+__pycache__/
+*.pyc

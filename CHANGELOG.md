@@ -1,5 +1,9 @@
 # DANISCOPE — Changelog
 
+## v2.0 — 29 Jun 2026
+- Major update to how DANISCOPE catches slowdowns. It now records detailed diagnostics in the background every few seconds (true memory pressure, compression, paging, disk activity and stuck processes), keeps a few hours of that history, and automatically saves a deep snapshot the moment it detects a stall - so a future slowdown is captured on its own, with nothing for you to press
+- Releases are now built and published automatically from a single push
+
 ## v1.21 — 29 Jun 2026
 - Releases are now built and published automatically - the installer is rebuilt from source and the download is updated for each new version
 
