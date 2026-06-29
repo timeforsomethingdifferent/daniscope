@@ -1,0 +1,19 @@
+# Build output
+/dist/
+
+# Private machine data - never publish
+*.csv
+
+# Local installers, updaters, and the publish script (derived / local only)
+*.command
+
+# Local-only asset and internal handover doc
+DANISCOPE.png
+DANISCOPE-Project-Brief.md
+
+# OS / sync cruft
+.DS_Store
+.stfolder/
+
+# Built installer (the Action builds + attaches this to the release)
+*.zip

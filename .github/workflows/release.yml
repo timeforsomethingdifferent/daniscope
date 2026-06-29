@@ -1,0 +1,48 @@
+name: Build & Release DANISCOPE
+
+# Builds the installer zip on GitHub's servers and publishes/updates the
+# release whose tag matches VERSION. The website's Download button points at
+# the latest release, so it flips to the new version automatically.
+#
+# Trigger: any push to main that touches the source, the builder, or VERSION.
+# Also runnable by hand from the Actions tab (workflow_dispatch).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "VERSION"
+      - "claude-proc-logger.py"
+      - "claude-dashboard-server.py"
+      - "build.py"
+      - "build/**"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Build installer zip
+        run: python build.py
+
+      - name: Read VERSION
+        id: ver
+        run: echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish / update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: DANISCOPE v${{ steps.ver.outputs.version }}
+          files: dist/DANISCOPE-Installer.zip
+          fail_on_unmatched_files: true
