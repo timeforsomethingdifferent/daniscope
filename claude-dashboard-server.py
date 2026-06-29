@@ -5,7 +5,7 @@ try: import psutil
 except Exception: psutil=None
 GL=os.path.expanduser("~/.daniscope")
 RAW=os.path.join(GL,"proc-log.csv"); ROLL=os.path.join(GL,"rollup-log.csv")
-HTML=os.path.join(GL,"dashboard.html"); PORT=8765; VERSION="1.20"
+HTML=os.path.join(GL,"dashboard.html"); PORT=8765; VERSION="1.21"
 CURATED={
  'kernel_task':'The macOS kernel. High here is your Mac deliberately throttling to shed heat, it is the symptom of a hot chip, not the cause. Lighten the load or improve airflow and it drops.',
  'windowserver':'Draws everything on your screens. Rises with more displays, higher resolution and refresh rates, screen sharing, and lots of on-screen video or animation. Your two external displays are the usual reason it sits higher than a single-screen Mac.',
@@ -106,6 +106,7 @@ CURATED={
 }
 ROLL_ALIAS={"brave":"Brave Browser","claude":"Claude","notion":"Notion Calendar","fathom":"Fathom","zoom":"zoom.us","safari":"Safari","audio":"coreaudiod"}
 CHANGELOG=[
+ {"v":"1.21","d":"29 Jun 2026","notes":["Releases are now built and published automatically - the installer is rebuilt from source and the download is updated for each new version"]},
  {"v":"1.20","d":"29 Jun 2026","notes":["Renamed the data folder from ~/glances to ~/.daniscope (a leftover name); your history is migrated automatically and the dashboard URL is unchanged"]},
  {"v":"1.19","d":"28 Jun 2026","notes":["Update check now reads a VERSION file in the GitHub repo, so a newer version is detected as soon as it is pushed"]},
  {"v":"1.18","d":"28 Jun 2026","notes":["Opt-in update check: a red/green indicator in the top bar. Off by default. Turn it on in Settings and DANISCOPE pings GitHub once a week to see if there is a newer version - the only outbound connection, and it sends nothing about you"]},

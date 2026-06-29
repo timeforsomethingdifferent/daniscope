@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 """
-DANISCOPE installer builder.
+DANISCOPE installer builder + release-notes generator.
 
-Single source of truth = the VERSION file. This script regenerates the
-self-contained macOS installer (.app) and zips it to dist/DANISCOPE-Installer.zip,
-ready to attach to a GitHub release. Runs on a plain Linux runner (no macOS needed)
-because the .app is just a folder structure wrapping a shell script.
+Single source of truth:
+  - VERSION                     -> the version string, e.g. "1.21"
+  - claude-dashboard-server.py  -> holds the CHANGELOG array (the "why" for each
+                                   version). Everything user-facing is drawn from it:
+                                   the in-app Version history, the GitHub release
+                                   notes, the commit message, and CHANGELOG.md.
 
-Inputs (repo root):
-  VERSION                       -> version string, e.g. "1.20"
-  claude-proc-logger.py         -> logger source, embedded into the installer
-  claude-dashboard-server.py    -> dashboard source, embedded into the installer
-  build/prologue.sh             -> installer head (ends with the proc heredoc opener)
-  build/middle.sh               -> closes proc heredoc + opens dashboard heredoc
-  build/epilogue.sh             -> closes dashboard heredoc + the rest of the installer
+Modes:
+  python build.py                 build dist/DANISCOPE-Installer.zip AND write
+                                  dist/RELEASE_NOTES.md (used as the GitHub release body)
+  python build.py --commit-msg    print a git commit message for the latest version
+  python build.py --changelog     print a full CHANGELOG.md (all versions)
 
-Output:
-  dist/DANISCOPE-Installer.zip
+Build runs on a plain Linux runner (no macOS needed): the .app is just a folder
+structure wrapping a shell script.
 """
-import os, re, sys, zipfile
+import os, re, sys, json, zipfile
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DIST = os.path.join(ROOT, "dist")
@@ -39,22 +39,43 @@ def read(path):
         return f.read()
 
 
+def version():
+    v = read("VERSION").strip()
+    if not v:
+        sys.exit("build: VERSION file is empty")
+    return v
+
+
+def changelog():
+    """Parse the CHANGELOG array out of the dashboard source (each entry is JSON)."""
+    out, inside = [], False
+    for ln in read("claude-dashboard-server.py").splitlines():
+        s = ln.strip()
+        if not inside:
+            if s.startswith("CHANGELOG"):
+                inside = True
+            continue
+        if s.startswith("]"):
+            break
+        s = s.rstrip(",")
+        if s.startswith("{") and s.endswith("}"):
+            try:
+                out.append(json.loads(s))
+            except Exception:
+                pass
+    return out
+
+
 def build_installer(ver):
     proc = read("claude-proc-logger.py")
     dash = read("claude-dashboard-server.py")
-
-    # Inject the canonical version into the embedded dashboard so the running
-    # app's self-version always matches the VERSION file (drives the update chip).
     dash, n = re.subn(r'VERSION="[^"]*"', 'VERSION="%s"' % ver, dash, count=1)
     if n != 1:
         sys.exit('build: expected exactly one VERSION="..." in dashboard source, found %d' % n)
-
-    # Heredoc safety: a body line equal to the closing marker would break the install.
     for marker, body, name in (("PROCLOGGER_PYEOF", proc, "proc-logger"),
                                ("DASHBOARD_PYEOF", dash, "dashboard-server")):
         if any(line == marker for line in body.splitlines()):
             sys.exit("build: %s contains a line equal to heredoc marker %s" % (name, marker))
-
     return read("build/prologue.sh") + proc + read("build/middle.sh") + dash + read("build/epilogue.sh")
 
 
@@ -78,13 +99,56 @@ def write_zip(installer_text, ver):
     return zip_path
 
 
+def latest_entry(ver):
+    cl = changelog()
+    if cl:
+        return cl[0]
+    return {"v": ver, "d": "", "notes": ["Maintenance release."]}
+
+
+def release_notes_md(ver):
+    e = latest_entry(ver)
+    head = "### What's new in v%s%s" % (e.get("v", ver), (" — " + e["d"]) if e.get("d") else "")
+    bullets = "\n".join("- " + n for n in e.get("notes", []))
+    install = ("\n\n---\n**Install:** download `DANISCOPE-Installer.zip` below, unzip, "
+               "then right-click the app and choose **Open** (first time only, past the "
+               "unidentified-developer warning).")
+    return head + "\n\n" + bullets + install + "\n"
+
+
+def commit_msg(ver):
+    e = latest_entry(ver)
+    title = "DANISCOPE v%s" % ver
+    bullets = "\n".join("- " + n for n in e.get("notes", []))
+    return title + "\n\n" + bullets + "\n"
+
+
+def changelog_md():
+    lines = ["# DANISCOPE — Changelog", ""]
+    for e in changelog():
+        lines.append("## v%s%s" % (e.get("v", "?"), (" — " + e["d"]) if e.get("d") else ""))
+        for n in e.get("notes", []):
+            lines.append("- " + n)
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def main():
-    ver = read("VERSION").strip()
-    if not ver:
-        sys.exit("build: VERSION file is empty")
+    arg = sys.argv[1] if len(sys.argv) > 1 else ""
+    ver = version()
+    if arg == "--commit-msg":
+        sys.stdout.write(commit_msg(ver)); return
+    if arg == "--changelog":
+        sys.stdout.write(changelog_md()); return
+    if arg:
+        sys.exit("build: unknown argument %r" % arg)
     installer_text = build_installer(ver)
     zip_path = write_zip(installer_text, ver)
-    print("built %s for v%s (installer %d bytes)" % (zip_path, ver, len(installer_text.encode("utf-8"))))
+    os.makedirs(DIST, exist_ok=True)
+    with open(os.path.join(DIST, "RELEASE_NOTES.md"), "w", encoding="utf-8") as f:
+        f.write(release_notes_md(ver))
+    print("built %s for v%s (installer %d bytes) + dist/RELEASE_NOTES.md"
+          % (zip_path, ver, len(installer_text.encode("utf-8"))))
 
 
 if __name__ == "__main__":
