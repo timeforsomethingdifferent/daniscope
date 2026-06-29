@@ -1,5 +1,9 @@
 # DANISCOPE — Changelog
 
+## v2.1 — 29 Jun 2026
+- Expanded the built-in plain-English app dictionary with many more popular apps - messengers, password managers, browsers, note-takers, dictation and meeting tools - so more of what is running gets a clear explanation
+- Brought back the Look up tab: search everything running on your Mac and read a plain-English explanation of each item
+
 ## v2.0 — 29 Jun 2026
 - Major update to how DANISCOPE catches slowdowns. It now records detailed diagnostics in the background every few seconds (true memory pressure, compression, paging, disk activity and stuck processes), keeps a few hours of that history, and automatically saves a deep snapshot the moment it detects a stall - so a future slowdown is captured on its own, with nothing for you to press
 - Releases are now built and published automatically from a single push
