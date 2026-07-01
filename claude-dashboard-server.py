@@ -5,7 +5,7 @@ try: import psutil
 except Exception: psutil=None
 GL=os.path.expanduser("~/.daniscope")
 RAW=os.path.join(GL,"proc-log.csv"); ROLL=os.path.join(GL,"rollup-log.csv")
-HTML=os.path.join(GL,"dashboard.html"); PORT=8765; VERSION="2.2"
+HTML=os.path.join(GL,"dashboard.html"); PORT=8765; VERSION="2.3"
 CURATED={
  'kernel_task':'The macOS kernel. High here is your Mac deliberately throttling to shed heat, it is the symptom of a hot chip, not the cause. Lighten the load or improve airflow and it drops.',
  'windowserver':'Draws everything on screen. Rises with more displays, higher resolution and refresh rates, screen sharing, and lots of on-screen video or animation. Running multiple or high-resolution external displays is a common reason it sits higher.',
@@ -201,6 +201,7 @@ CURATED={
 }
 ROLL_ALIAS={"brave":"Brave Browser","claude":"Claude","notion":"Notion Calendar","fathom":"Fathom","zoom":"zoom.us","safari":"Safari","audio":"coreaudiod"}
 CHANGELOG=[
+ {"v":"2.3","d":"30 Jun 2026","notes":["Sharper slowdown detection: the background capture now only flags genuine pile-ups (load far above your core count, or a process wedged on the disk while burning CPU) instead of normal busy moments like a Zoom call, samples the stuck process itself, and caps the diagnostics folder so it stays small"]},
  {"v":"2.2","d":"29 Jun 2026","notes":["Tidied the top bar back to a single row. The ⓘ next to each app in the Right now view already explains what it is, so the extra Look up tab was removed"]},
  {"v":"2.1","d":"29 Jun 2026","notes":["Expanded the built-in plain-English app dictionary with many more popular apps - messengers, password managers, browsers, note-takers, dictation and meeting tools - so more of what is running gets a clear explanation"]},
  {"v":"2.0","d":"29 Jun 2026","notes":["Major update to how DANISCOPE catches slowdowns. It now records detailed diagnostics in the background every few seconds (true memory pressure, compression, paging, disk activity and stuck processes), keeps a few hours of that history, and automatically saves a deep snapshot the moment it detects a stall - so a future slowdown is captured on its own, with nothing for you to press","Releases are now built and published automatically from a single push"]},

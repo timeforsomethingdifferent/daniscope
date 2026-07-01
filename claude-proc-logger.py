@@ -3,7 +3,7 @@
 # + rich detail buffer every 10s (last few hours) + automatic deep capture when
 # a stall is detected. All no-admin. Every addition is wrapped so it can never
 # break the core logging.
-import psutil, time, os, datetime, subprocess, re
+import psutil, time, os, datetime, subprocess, re, glob
 RAW  = os.path.expanduser("~/.daniscope/proc-log.csv")
 ROLL = os.path.expanduser("~/.daniscope/rollup-log.csv")
 DETAIL = os.path.expanduser("~/.daniscope/detail-log.csv")
@@ -52,10 +52,28 @@ def get_mempress():
     o=sh(["sysctl","-n","kern.memorystatus_vm_pressure_level"]).strip()
     try: return int(o)
     except Exception: return ""
-def get_stuck():
-    o=sh(["ps","-axo","stat="])
-    if not o: return ""
-    return sum(1 for t in o.split() if "U" in t)
+def stuck_hot():
+    # count uninterruptible (U-state) processes, and find the hottest one
+    o=sh(["ps","-axo","pid,stat,%cpu,comm"])
+    cnt=0; hp=None; hn=""; hc=0.0
+    for line in o.splitlines()[1:]:
+        pr=line.split(None,3)
+        if len(pr)<4: continue
+        if "U" in pr[1]:
+            cnt+=1
+            try: c=float(pr[2])
+            except Exception: c=0.0
+            if c>hc: hc=c; hp=pr[0]; hn=pr[3]
+    return cnt,hp,hn,hc
+def trim_diag(keep=12):
+    try:
+        d=cap_dir()
+        for pre in ("auto-slow-","auto-sample-"):
+            fs=sorted(glob.glob(os.path.join(d,pre+"*")))
+            for f in fs[:-keep]:
+                try: os.remove(f)
+                except Exception: pass
+    except Exception: pass
 def cap_dir():
     # auto-captures go to the project's diagnostics/ if the setup command recorded
     # the path; otherwise into ~/.daniscope/diagnostics. Either way they persist.
@@ -132,7 +150,7 @@ while True:
 
     # ---- rich detail buffer + auto-capture (all guarded) ----
     try:
-        mp=get_mempress(); vmd=get_vmstat(); stuck=get_stuck()
+        mp=get_mempress(); vmd=get_vmstat(); sc,shp,shn,shc=stuck_hot(); stuck=sc
         ws=kt=0.0
         for cpu,nm,mem in allp:
             if nm=="WindowServer": ws=cpu
@@ -141,19 +159,21 @@ while True:
             dio=psutil.disk_io_counters(); drd=dio.read_bytes/1048576; dwr=dio.write_bytes/1048576
         except Exception: drd=dwr=""
         g=lambda k: vmd.get(k,"")
-        # decide if this looks like a stall (GUESSED thresholds - tune with data)
+        # real-hang triggers (tuned 30 Jun 2026 from captured data): a bare stuck
+        # count and load ~= cores were noise (normal Zoom calls). Real hangs are
+        # load FAR above cores, or a process wedged in uninterruptible I/O while
+        # burning CPU (e.g. mdsync at 49%).
         reasons=[]
+        if load1>=CORES*2 and syscpu<60: reasons.append("load %.1f vs %d cores (CPU %.0f%%)"%(load1,CORES,syscpu))
+        if shc>=8 and isinstance(shp,str): reasons.append("%s stuck at %.0f%% CPU"%(shn,shc))
         if isinstance(mp,int) and mp>=4: reasons.append("memory pressure critical")
-        if isinstance(stuck,int) and stuck>=1: reasons.append("%d stuck process(es)"%stuck)
-        if load1>=CORES and syscpu<50: reasons.append("load %.1f vs %d cores, CPU %.0f%%"%(load1,CORES,syscpu))
         if prev_vm:
-            dpo=g("Pageouts")-prev_vm.get("Pageouts",0) if isinstance(g("Pageouts"),int) else 0
             dso=g("Swapouts")-prev_vm.get("Swapouts",0) if isinstance(g("Swapouts"),int) else 0
-            if dso>0 or (isinstance(dpo,int) and dpo>30000): reasons.append("paging out")
+            if isinstance(dso,int) and dso>0 and load1>=CORES: reasons.append("swapping out under load")
         bad_streak = bad_streak+1 if reasons else 0
         event=""
         if reasons and bad_streak>=STALL_PERSIST:
-            fn=deep_capture(reasons,best[1])
+            fn=deep_capture(reasons, shp or best[1])
             event=("CAPTURED:"+fn) if fn else "stall(%s)"%(";".join(reasons))
         elif reasons:
             event="watch(%s)"%(";".join(reasons))
@@ -170,6 +190,7 @@ while True:
     if cyc%30==0:
         trim_age(RAW,24,400000)
         trim_age(DETAIL,DETAIL_HOURS,100000)
+        trim_diag()
         grp={}
         for cpu,nm,mem in allp:
             gname=nm.split(" Helper")[0]

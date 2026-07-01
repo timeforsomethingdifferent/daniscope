@@ -1,5 +1,8 @@
 # DANISCOPE — Changelog
 
+## v2.3 — 30 Jun 2026
+- Sharper slowdown detection: the background capture now only flags genuine pile-ups (load far above your core count, or a process wedged on the disk while burning CPU) instead of normal busy moments like a Zoom call, samples the stuck process itself, and caps the diagnostics folder so it stays small
+
 ## v2.2 — 29 Jun 2026
 - Tidied the top bar back to a single row. The ⓘ next to each app in the Right now view already explains what it is, so the extra Look up tab was removed
 
